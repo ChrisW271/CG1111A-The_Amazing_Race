@@ -150,19 +150,19 @@ void detect_black(){
     stop();
     char* res = color_sensing();
     if(strcmp(res,"Red") == 0){
-      turn_left();
+      turnLeft();
     }
     else if(strcmp(res,"Green") == 0){
-      turn_right();
+      turnRight();
     }
     else if(strcmp(res,"Blue") == 0){
-      successive_right();
+      doubleRightTurn();
     }
     else if(strcmp(res,"Orange")){
-      turn_U();
+      uTurn();
     }
     else{
-      successive_left();
+      doubleLeftTurn();
     }
   }
 }
