@@ -1,19 +1,24 @@
-#define RGBWait 200
-#define LDRWait 10 
-#define LDR 0
-#define PrintGray
-#define PrintBlack
-#define PrintWhite
 MeLineFollower lineFinder(PORT_2);
-
 int red = 0;
 int green = 0;
 int blue = 0;
-String colours[] = {"Red","Green","Blue","Orange","Pink"};
-float colourArray[] = { 0, 0, 0 };
-float whiteArray[] = { 0, 0, 0 };
-float blackArray[] = { 0, 0, 0 };
-float greyDiff[] = { 0, 0, 0 };
+int sentivity = 20;
+int LIMIT = 100;
+
+int arr[7][3] = { {286, 405, 230},
+                  {0, 0, 0},
+                  {259, 163, 105},
+                  {271, 207, 130},
+                  {115, 212, 105},
+                  {252, 338, 205},
+                  {95, 193, 145},
+                };
+char* colrrr[7] = {"White", "Black", "Red", "Orange", "Green", "Pink", "Blue"};
+
+float euclidian_distance(float r, float g, float b, float r2, float g2, float b2) {
+  float dr = r - r2, dg = g - g2, db = b - b2;
+  return dr * dr + dg * dg + db * db;
+}
 
 void input(int code) {
   if (code == 0) {
@@ -35,101 +40,6 @@ void input(int code) {
     digitalWrite(S2, HIGH);
   }
 }
-bool over_half(float color_val){
-  if(color_val>float(255)/2){
-    return true;
-  }
-  else{
-    return false;
-  }
-}
-char* classifyColour(int Red, int Green, int Blue){
-  if(!over_half(Green) && !over_half(Blue)){
-    return "Red";
-  }
-  else if(!over_half(Red) && !over_half(Green)){
-    return "Blue";
-  }
-  else if(!over_half(Blue) && !over_half(Red)){
-    return "Green";
-  }
-  else if(Red>Blue && Green>Blue){
-    return "Orange";
-  }
-  else{
-    return "Pink";
-  }
-}
-
-char* color_sensing() {
-  countdown_time(5);
-  for (int c = 0; c <= 2; c++) {
-    input(c);
-    delay(RGBWait);
-    colourArray[c] = getAvgReading(5);
-    colourArray[c] = (colourArray[c] - blackArray[c]) / (greyDiff[c]) * 255.0;
-    input(3); 
-    delay(RGBWait);
-    #ifdef Debug_Color
-      Serial.print(int(colourArray[c]));
-      Serial.print(",");
-    #endif
-    delay(LDRWait);
-  }
-  char *colour = classifyColour(colourArray[0],colourArray[1],colourArray[2]);
-  char *res = colour;
-  #ifdef Debug_Color
-    Serial.print(res);
-    Serial.println("");
-  #endif
-  return res;
-}
-
-void countdown_time(int time){
-  for(int i=0;i<=time;++i){
-    delay(500);
-    Serial.print(i);
-    Serial.print(" ");
-  }
-  Serial.println();
-}
-void print_array(float a[]){
-  for(int i=0;i<3;++i){
-    Serial.print(a[i]);
-    Serial.print(" ");
-  } 
-  Serial.println();
-  delay(500);
-}
-void setBalance() {
-  //set white balance
-  Serial.println("Put White Sample For Calibration ...");
-  countdown_time(5);
-  digitalWrite(LED, LOW);
-  for (int i = 0; i <= 2; i++) {
-    input(i);
-    delay(RGBWait);
-    whiteArray[i] = getAvgReading(5);
-    input(3);
-    delay(RGBWait);
-  }
-  Serial.println("White Array:");
-  print_array(whiteArray);
-  Serial.println("Put Black Sample For Calibration ...");
-  countdown_time(5);
-  for (int i = 0; i <= 2; i++) {
-    input(i);
-    delay(RGBWait);
-    blackArray[i] = getAvgReading(5);
-    input(3);
-    delay(RGBWait);
-    greyDiff[i] = whiteArray[i] - blackArray[i];
-  }
-  Serial.println("Black Array:");
-  print_array(blackArray);
-  Serial.println("Put colored sheet");
-}
-
 
 int getAvgReading(int times) {
   int reading;
@@ -144,25 +54,116 @@ int getAvgReading(int times) {
   return total / times;
 }
 
-void detect_black(){
+bool detect_black() {
   int sensorState = lineFinder.readSensors();
-  if(sensorState == S1_IN_S2_IN){
-    stop();
-    char* res = color_sensing();
-    if(strcmp(res,"Red") == 0){
-      turnLeft();
-    }
-    else if(strcmp(res,"Green") == 0){
-      turnRight();
-    }
-    else if(strcmp(res,"Blue") == 0){
-      doubleRightTurn();
-    }
-    else if(strcmp(res,"Orange")){
-      uTurn();
-    }
-    else{
-      doubleLeftTurn();
+  return (sensorState == S1_IN_S2_IN);
+}
+
+void turnLedOn(char* s){
+  if (strcmp(s,"Red") == 0) led.setColor(255,0,0);
+  else if (strcmp(s,"Green")==0) led.setColor(0,255,0);
+  else if (strcmp(s,"Orange")==0) led.setColor(255,165,0);
+  else if (strcmp(s,"Pink")==0) led.setColor(231,84,128);
+  else if (strcmp(s,"Blue")==0) led.setColor(0,0,255);
+  else if(strcmp(s,"Yellow") == 0) led.setColor(255,255,0);
+  else led.setColor(255,255,255);
+  led.show();
+}
+
+void print_array(float a[]) {
+  for (int i = 0; i < 3; ++i) {
+    Serial.print(a[i]);
+    Serial.print(" ");
+ }
+  Serial.println();
+  delay(500);
+}
+
+void countdown_time(int time) {
+  for (int i = time; i > 0; --i) {
+    Serial.print(i);
+    Serial.print(",");
+    delay(100);
+  }
+  Serial.println();
+}
+
+bool over_limit(float color_val) {
+  return (color_val > LIMIT);
+}
+
+char* classifyColour(float Red, float Green, float Blue){
+  char* ret = NULL; float min_dist = 1e9;
+  if (max(Red, max(Green, Blue)) > 380) return "White";
+
+
+  for (int i=0; i<7; i++) {
+    float cur_dist = euclidian_distance(arr[i][0], arr[i][1], arr[i][2], 
+                                      Red, Green, Blue);
+
+    if (cur_dist < min_dist) {
+      min_dist = cur_dist;
+      ret = colrrr[i];
     }
   }
+  return ret;
+}
+
+
+char* color_sensing() {
+  turnLedOn("White");
+  countdown_time(3);
+  led.setColor(0,0,0);
+  led.show();
+  for (int c = 0; c <= 2; c++) {
+    input(c);
+    delay(RGBWait);
+    colourArray[c] = getAvgReading(5);
+    colourArray[c] = (colourArray[c] - blackArray[c]) / (greyDiff[c]) * 255.0;
+    input(3); 
+    delay(RGBWait);
+    Serial.print(int(colourArray[c]));
+    Serial.print(",");
+    delay(LDRWait);
+  }
+  char *colour = classifyColour(colourArray[0],colourArray[1],colourArray[2]);
+  Serial.print(colour);
+  Serial.println("");
+  return colour;
+}
+
+
+void setBalance() {
+  //set white balance
+  Serial.println("Put White Sample For Calibration ...");
+  // turnLedOn("White");
+  // countdown_time(5);
+  // led.setColor(0,0,0);
+  // led.show();
+  for (int i = 0; i <= 2; i++) {
+    input(i);
+    delay(RGBWait);
+    whiteArray[i] = getAvgReading(5);
+    input(3);
+    delay(RGBWait);
+  }
+  Serial.println("White Array:");
+  print_array(whiteArray);
+  turnLedOn("White");
+  Serial.println("Put Black Sample For Calibration ...");
+  turnLedOn("White");
+  delay(3000);
+  countdown_time(5);
+  led.setColor(0,0,0);
+  led.show();
+  for (int i = 0; i <= 2; i++) {
+    input(i);
+    delay(RGBWait);
+    blackArray[i] = getAvgReading(5);
+    input(3);
+    delay(RGBWait);
+    greyDiff[i] = whiteArray[i] - blackArray[i];
+  }
+  Serial.println("Black Array:");
+  print_array(blackArray);
 }

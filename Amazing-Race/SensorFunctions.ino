@@ -1,14 +1,10 @@
-#define TIMEOUT 2000     
+#define TIMEOUT 5000     
 #define SPEED_OF_SOUND 340 
-#define ULTRASONIC_PIN 12
-#define IR_EMITTER_PIN
-#define IR_RECIEVER_PIN
 
-long ultrasonic_distance() {
-    pinMode(ULTRASONIC_PIN, OUTPUT);
-
+float ultrasonic_distance() {
     digitalWrite(ULTRASONIC_PIN, LOW);
     delayMicroseconds(2);
+
     digitalWrite(ULTRASONIC_PIN, HIGH);
     delayMicroseconds(10);
     digitalWrite(ULTRASONIC_PIN, LOW);
@@ -17,28 +13,42 @@ long ultrasonic_distance() {
     long duration = pulseIn(ULTRASONIC_PIN, HIGH, TIMEOUT);
     return duration / 2.0 / 1000000 * SPEED_OF_SOUND * 100;  // distance in cm
 }
+float read_ir(){
+    input(0);
+    float val_before = analogRead(IR_RECIEVER_PIN);
+    delayMicroseconds(100);
+    input(3);
+    float val_after = analogRead(IR_RECIEVER_PIN); 
+    delayMicroseconds(100);
+    return (val_after - val_before) * 5.0 / 1023.0;
+}
 
-long ir_distance() {
-    pinMode(IR_EMITTER_PIN, INPUT);
-    pinMode(IR_RECIEVER_PIN, OUTPUT);
-    digitalWrite(IR_EMITTER_PIN, HIGH);
-    delayMicroseconds(500);
-
-    float total = 0;
+double ir_distance() {
+    double total = 0.0;
     for (int i = 0; i < 10; i++) {
-        total += analogRead(IR_RECIEVER_PIN);
-        delayMicroseconds(10);
+        total+=(double)read_ir();
     }
-    analogWrite(IR_EMITTER_PIN, LOW);
-    double volt = 5.0 * (total / 10.0) / 1023.0;
-    float distance = 27.86 * pow(volt, -1.15) - 3.0;
-    distance = 2.0 * distance - 2;
+    input(0);
+    total= (double)total / 10.0;
+    // 4) Distance model derived from your calibration
+    // distance ≈ 270 * adc^-1.1   (cm)
+    float distance = 270.0 * pow(total, -1.1);
+
+    // 5) Clamp range (avoid crazy readings)
+    if (distance < 1) distance = 1;
+    if (distance > 20) distance = 20;
+
+    Serial.println(distance);
     return distance;
+    // return pow(total/321.8,-2.469);
 }
 
 long find_distance() {
-    if (ultrasonic_distance() > 25) {
-        return ir_distance();
+    long u_dist = ultrasonic_distance();
+    Serial.println(read_ir());
+    if (u_dist == 0 || u_dist > 20) {
+        if (read_ir()>1.67) irwawy = true;
+        return 8.03;
     }
-    return ultrasonic_distance();
+    return u_dist;
 }

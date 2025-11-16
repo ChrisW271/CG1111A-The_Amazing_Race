@@ -1,6 +1,6 @@
-#define TURN_TIME 625
-#define TURNING_SPEED 150
-#define MOTOR_SPEED 200
+#define TURN_TIME 500
+#define TURNING_SPEED 160
+#define MOTOR_SPEED 225
 #define STRAIGHT_TIME 1000
 
 double kp, ki, kd;
@@ -11,9 +11,9 @@ MeDCMotor leftMotor(M1);
 MeDCMotor rightMotor(M2);
 
 void initialize_PID() {
-    kp = 4.0;
+    kp = 18.0;
     ki = 0.0;
-    kd = 2; 
+    kd = 0.0; 
     lsttime = millis();
 }
 
@@ -22,7 +22,7 @@ double calculate_PID() {
     double dt = (now - lsttime) / 1000.0;
     if (dt <= 0) dt = 0.001;
 
-    long setpoint = 11;
+    double setpoint = 8.0;
     double distance = find_distance();
     double error = setpoint - distance;
 
@@ -45,14 +45,23 @@ void stopMotor() {// Code for stopping motor}
     rightMotor.stop();
 }
 
-void moveForward(int speedPID) {// Code for moving forward for some short interval}
-    if (speedPID < 0) {
-        leftMotor.run(MOTOR_SPEED - speedPID);
-        rightMotor.run(-MOTOR_SPEED - speedPID);
-    } else {
-        leftMotor.run(MOTOR_SPEED + speedPID);
-        rightMotor.run(-MOTOR_SPEED + speedPID);
+bool irwawy = false;
+
+void moveForward() {// Code for moving forward for some short interval}
+    speedPID = -calculate_PID();
+    if (irwawy) {
+        speedPID = +140;
+        irwawy = !irwawy;
     }
+
+    leftMotor.run(MOTOR_SPEED + speedPID);
+    rightMotor.run(-MOTOR_SPEED + speedPID);
+
+     Serial.print("PID: "); Serial.print(speedPID);
+    Serial.print(" | L: "); Serial.print(MOTOR_SPEED - speedPID);
+    Serial.print(" | R: "); Serial.print(-MOTOR_SPEED - speedPID);
+    Serial.print(" | Dist: "); Serial.println(find_distance());
+
 }
 
 void helper_turnRight() {// Code for turning right 90 deg}
@@ -78,7 +87,7 @@ void turnLeft() {
 }
 
 void uTurn() {// Code for u-turn}
-    helper_turnLeft();
+    helper_turnRight();
     delay(2 * TURN_TIME);
     stopMotor();
 }
@@ -87,7 +96,7 @@ void doubleLeftTurn() {// Code for double left turn}
     turnLeft();
     
     moveForward();
-    delay(STRAIGHT_TIME);
+    delay(1100);
     stopMotor();
 
     turnLeft();
@@ -97,7 +106,7 @@ void doubleRightTurn() {// Code for double right turn}
     turnRight();
     
     moveForward();
-    delay(STRAIGHT_TIME);
+    delay(850);
     stopMotor();
 
     turnRight();
